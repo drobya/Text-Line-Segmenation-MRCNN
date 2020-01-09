@@ -282,129 +282,56 @@ def merge_classes(page, curr_line_page, curr_line_value, start_y, end_y, cline_i
     return curr_line_page, merged
 
 
-paths = [#'prediction/blobs/DIVA_CSG18_private_test', 'prediction/blobs/DIVA_CB55_private_test',
-         #'prediction/blobs/DIVA_CSG863_private_test', 'prediction/blobs/AHTE_test',
-         'prediction/pixel_level/CB55_private_test', 'prediction/pixel_level/CSG18_private_test',
-         'prediction/pixel_level/CSG863_private_test', 'prediction/pixel_level/AHTE_test']
 
-# paths = ['prediction/pixel_level/AHTE_test', 'prediction/blobs/AHTE_test']
+if __name__ == '__main__':
+    import argparse
 
-out_dir = 'new_refined'
-# prediction_dir = 'prediction/blobs/DIVA_CB55_private_test'
-# prediction_dir = 'prediction/pixel_level/CB55_private_test'
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description='Post-processing for text-line segmentation')
+        
+    parser.add_argument('--in_images', required=True,
+                        metavar="/path/to/segmentation/results",
+                        help='Directory of the MOC_VML dataset')
+    parser.add_argument('--outdir', required=False, default='refined',
+                        metavar="/path/to/out/dir",
+                        help="Path to output folder")
+    args = parser.parse_args()
 
-for prediction_dir in paths:
-    out_path = os.path.join(out_dir, prediction_dir)
-    vis_path = os.path.join(out_path, 'vis')
-    os.makedirs(vis_path, exist_ok=True)
 
-    for p in os.listdir(prediction_dir):
-        if p.split('.')[-1] != 'png':
-            continue
-        # p = 'e-codices_csg-0018_076_max.png'
-        print(p)
-        page = cv2.imread(os.path.join(prediction_dir, p), 0)
+    paths = [args.in_images]
 
-        values = np.unique(page)
+    out_dir = args.outdir
 
-        print('before: # classes: ', len(values) + 1)
+    for prediction_dir in paths:
+        out_path = os.path.join(out_dir, prediction_dir)
+        vis_path = os.path.join(out_path, 'vis')
+        os.makedirs(vis_path, exist_ok=True)
 
-        # refined = refine_text_line_segmentation(page)
-
-        vis_refined = np.zeros((*page.shape, 3), dtype=np.uint8)
-
-        values = np.unique(page)
-
-        print('# classes: ', len(values) + 1)
-
-        for v in values:
-            if v == 0:
+        for p in os.listdir(prediction_dir):
+            if p.split('.')[-1] != 'png':
                 continue
-            vis_refined[page == v] = (255 * np.random.rand(3)).astype(np.uint8)
+                
+            print(p)
+            page = cv2.imread(os.path.join(prediction_dir, p), 0)
 
-        cv2.imshow('before refined', cv2.resize(vis_refined, (600, 800)))
-        cv2.waitKey(1)
+            refined = merge_lines(page)
+            refined = split_lines(refined)
+            refined = merge_lines(refined, alpha=0.2)
 
-        refined = merge_lines(page)
-        refined = split_lines(refined)
+            vis_refined = np.zeros((*refined.shape, 3), dtype=np.uint8)
 
-        refined = merge_lines(refined, alpha=0.2)
+            values = np.unique(refined)
 
-        vis_refined = np.zeros((*refined.shape, 3), dtype=np.uint8)
+            print('# classes: ', len(values) + 1)
 
-        values = np.unique(refined)
+            for v in values:
+                if v == 0:
+                    continue
+                vis_refined[refined == v] = (255 * np.random.rand(3)).astype(np.uint8)
 
-        print('# classes: ', len(values) + 1)
+            cv2.imshow('refined', cv2.resize(vis_refined, (600, 800)))
+            cv2.waitKey(1)
 
-        for v in values:
-            if v == 0:
-                continue
-            vis_refined[refined == v] = (255 * np.random.rand(3)).astype(np.uint8)
-
-        cv2.imshow('refined', cv2.resize(vis_refined, (600, 800)))
-        cv2.waitKey(1)
-
-        cv2.imwrite(os.path.join(out_path, p), refined)
-        cv2.imwrite(os.path.join(vis_path, p), vis_refined)
-
-## archive
-#
-# def refine_text_line_segmentation(page, margin=0.1, alpha=1.5):
-#     lines = get_lines_info(page)
-#
-#     refined_page = np.zeros_like(page)
-#     cline_id = 1
-#
-#     heights_std = lines['height'].std()
-#     heights_mean = lines['height'].mean()
-#     cut_off = heights_std * alpha
-#
-#     print('heights mean', heights_mean, 'cutoff ', cut_off)
-#
-#     for i, r in tqdm(lines.iterrows(), desc='splitting'):
-#         v = r['value']
-#         h = r['height']
-#
-#
-#         # print('curr height', h)
-#
-#         min_y = int(r['min_y']) - int(margin * heights_mean)
-#         max_y = int(r['max_y']) + int(margin * heights_mean)
-#
-#         curr_line_page = np.zeros_like(page)
-#         curr_line_page[page == v] = 1
-#
-#         disp_curr_line = 255 * curr_line_page[min_y:max_y, :]
-#         cv2.imshow('curr_line', cv2.resize(disp_curr_line, (600, 50)))
-#         cv2.waitKey(1)
-#
-#         if h > heights_mean + cut_off:
-#             split_point = best_split_point(curr_line_page[min_y:max_y, :])
-#
-#             # print('split point: ', split_point)
-#
-#             disp_curr_line = cv2.line(disp_curr_line, (0, split_point), (disp_curr_line.shape[1], split_point), 255, 2)
-#             cv2.imshow('split line', cv2.resize(disp_curr_line, (600, 50)))
-#             cv2.waitKey(0)
-#
-#             split_point += min_y
-#
-#             curr_line_page[min_y:split_point, :][curr_line_page[min_y:split_point, :] == 1] = cline_id
-#
-#             curr_line_page = merge_classes(page, curr_line_page, min_y, split_point, cline_id)
-#             cline_id += 1
-#
-#             curr_line_page[split_point:max_y, :][curr_line_page[split_point:max_y, :] == 1] = cline_id
-#
-#             curr_line_page = merge_classes(page, curr_line_page, split_point, max_y, cline_id)
-#             cline_id += 1
-#         else:
-#             curr_line_page[curr_line_page == 1] = cline_id
-#
-#             curr_line_page = merge_classes(page, curr_line_page, min_y, max_y, cline_id)
-#
-#             cline_id += 1
-#
-#         refined_page += curr_line_page
-#
-#     return refined_page
+            cv2.imwrite(os.path.join(out_path, p), refined)
+            cv2.imwrite(os.path.join(vis_path, p), vis_refined)

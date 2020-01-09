@@ -40,10 +40,7 @@ from mrcnn import model as modellib, utils, visualize
 from matplotlib import patches, lines
 from matplotlib.patches import Polygon
 
-import wandb
-from wandb.keras import WandbCallback
 
-wandb.init(project='text-line-segmentation-mrcnn')
 
 # Path to trained weights file
 COCO_WEIGHTS_PATH = "mask_rcnn_coco.h5"
@@ -336,12 +333,12 @@ def train(model):
     model.train(dataset_train, dataset_val,
                 learning_rate=config.LEARNING_RATE,
                 epochs=10,
-                layers='heads', custom_callbacks=[WandbCallback()])
+                layers='heads', custom_callbacks=[])
 
     model.train(dataset_train, dataset_val,
                 learning_rate=config.LEARNING_RATE / 10,
                 epochs=100,
-                layers="all", custom_callbacks=[WandbCallback()])
+                layers="all", custom_callbacks=[])
 
     model_path = os.path.join('models', "mask_rcnn_diva_{}_tls.h5".format(dataset_name))
     model.keras_model.save_weights(model_path)
@@ -992,12 +989,8 @@ def bit_predict_page(model, page_path=None, pages_dir_path=None, MIN_MASK_SIZE=6
         if SAVE_VID:
             out.release()
 
-        wandb.log({'ann_{}'.format(p_path.split('/')[-1]): wandb.Image(disp_image),
-                   '{}'.format(p_path.split('/')[-1]): wandb.Image(output_image)}) #, 'prediction_video_{}'.format(p_path.split('/')[-1].split('.')[0]): wandb.Video('./out/{}.mp4'.format(p_path.split('/')[-1].split('.')[0]), fps=2, format='mp4')})
 
-############################################################
-#  Training
-############################################################
+
 
 if __name__ == '__main__':
     import argparse
@@ -1009,7 +1002,7 @@ if __name__ == '__main__':
                         metavar="<command>",
                         help="'train' or 'inference'")
     parser.add_argument('--dataset', required=False,
-                        metavar="/path/to/moc/dataset/",
+                        metavar="/path/to/dataset/",
                         help='Directory of the MOC_VML dataset')
     parser.add_argument('--weights', required=True,
                         metavar="/path/to/weights.h5",
